@@ -412,3 +412,5 @@ async function sleep(ms) {
   });
 }
 */
+
+export default Ws;
