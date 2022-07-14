@@ -1,4 +1,11 @@
-import { Iws, iEio3 } from "../types/ws";
+import {
+  Iws,
+  iEio3,
+  SocketIoHello,
+  I_ws,
+  InsightSocketEventData,
+  SocketPayment,
+} from "../types/ws";
 import * as pkg from "../package.json";
 
 let Cookies = require("../lib/cookies.js");
@@ -15,7 +22,7 @@ Ws.create = function ({
   onError,
   onMessage,
 }) {
-  let wsc = {};
+  let wsc = <I_ws>{};
 
   let defaultHeaders = {
     /*
@@ -58,10 +65,10 @@ Ws.create = function ({
       console.error(await sidResp.text());
       throw new Error("bad response");
     }
-    await cookieStore.set(sidUrl, sidResp);
+    document.cookie = sidUrl + "=" + sidResp;
 
     // ex: `97:0{"sid":"xxxx",...}`
-    let msg = sidResp.body;
+    let msg = await sidResp.text();
     let colonIndex = msg.indexOf(":");
     // 0 is CONNECT, which will always follow our first message
     let start = colonIndex + ":0".length;
@@ -73,45 +80,41 @@ Ws.create = function ({
     //console.log(json);
 
     // @type {SocketIoHello}
-    let session = JSON.parse(json);
+    let session = <SocketIoHello>JSON.parse(json);
     return session;
   };
 
-  /**
-   * @param {String} sid
-   * @param {String} eventname
-   */
-  Eio3.subscribe = async function (sid, eventname) {
+  Eio3.subscribe = async function (sid, eventName) {
     let now = Date.now();
     let subUrl = `${baseUrl}/socket.io/?EIO=3&transport=polling&t=${now}&sid=${sid}`;
-    let sub = JSON.stringify(["subscribe", eventname]);
+    let sub = JSON.stringify(["subscribe", eventName]);
     // not really sure what this is, couldn't find documentation for it
     let typ = 422; // 4 = MESSAGE, 2 = EVENT, 2 = ???
     let msg = `${typ}${sub}`;
     let len = msg.length;
-    let body = `${len}:${msg}`;
+    let Body = `${len}:${msg}`;
 
     let cookies = await cookieStore.get(subUrl);
-    let subResp = await request({
+    let subResp = await fetch(
       //agent: httpAgent,
-      method: "POST",
-      url: subUrl,
-      headers: Object.assign(
-        {
+      subUrl,
+      {
+        method: "POST",
+        headers: {
           "Content-Type": "text/plain;charset=UTF-8",
           Cookie: cookies,
+          ...defaultHeaders,
         },
-        defaultHeaders,
-      ),
-      body: body,
-    });
+        body: Body,
+      },
+    );
     if (!subResp.ok) {
-      console.error(subResp.toJSON());
+      console.error(await subResp.text());
       throw new Error("bad response");
     }
     await cookieStore.set(subUrl, subResp);
 
-    return subResp.body;
+    return subResp.text();
   };
 
   /*
@@ -141,9 +144,6 @@ Ws.create = function ({
   };
   */
 
-  /**
-   * @param {String} sid - session id (associated with AWS ALB cookie)
-   */
   Eio3.connectWs = async function (sid) {
     baseUrl = baseUrl.slice(4); // trim leading 'http'
     let url =
@@ -173,7 +173,7 @@ Ws.create = function ({
         ws.send("2probe");
       });
 
-      ws.once("error", function (err) {
+      ws.once("error", function (err: Error) {
         if (onError) {
           onError(err);
         } else {
@@ -182,7 +182,7 @@ Ws.create = function ({
         }
       });
 
-      ws.once("message", function message(data) {
+      ws.once("message", function message(data: Buffer) {
         if ("3probe" === data.toString()) {
           if (debug) {
             console.debug("<= Socket.io Welcome ('3probe')");
@@ -251,7 +251,7 @@ Ws.create = function ({
     /**
      * @param {Buffer} buf
      */
-    function _onMessage(buf) {
+    function _onMessage(buf: Buffer) {
       let msg = buf.toString();
       if ("3" === msg.toString()) {
         if (debug) {
@@ -307,10 +307,6 @@ Ws.create = function ({
   return wsc;
 };
 
-/**
- * @param {String} baseUrl
- * @param {Function} find
- */
 Ws.listen = async function (baseUrl, find) {
   let ws;
   let p = new Promise(async function (resolve, reject) {
@@ -326,7 +322,7 @@ Ws.listen = async function (baseUrl, find) {
          * @param {String} evname
          * @param {InsightSocketEventData} data
          */
-        async function (evname, data) {
+        async function (evname: string, data: InsightSocketEventData) {
           let result;
           try {
             result = await find(evname, data);
@@ -351,13 +347,6 @@ Ws.listen = async function (baseUrl, find) {
 
 // TODO waitForVouts(baseUrl, [{ address, satoshis }])
 
-/**
- * @param {String} baseUrl
- * @param {String} addr
- * @param {Number} [amount]
- * @param {Number} [maxTxLockWait]
- * @returns {Promise<SocketPayment>}
- */
 Ws.waitForVout = async function (
   baseUrl,
   addr,
@@ -365,15 +354,10 @@ Ws.waitForVout = async function (
   maxTxLockWait = 3000,
 ) {
   // Listen for Response
-  /** @type SocketPayment */
-  let mempoolTx;
+  let mempoolTx: SocketPayment;
   return await Ws.listen(baseUrl, findResponse);
 
-  /**
-   * @param {String} evname
-   * @param {InsightSocketEventData} data
-   */
-  function findResponse(evname, data) {
+  function findResponse(evname: string, data: InsightSocketEventData) {
     if (!["tx", "txlock"].includes(evname)) {
       return;
     }
