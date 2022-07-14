@@ -1,4 +1,5 @@
 "use strict";
+import crypto from "crypto-js";
 
 let Crypto = require("crypto");
 
@@ -26,7 +27,7 @@ Cipher.checkPassphrase = async function (passphrase, shadow) {
     }
     return false;
   }
-
+  // let untrustedShadow = crypto.SHA512(key128).toString("base64");
   let untrustedShadow = Crypto.createHash("sha512")
     .update(key128)
     .digest("base64");
@@ -38,6 +39,7 @@ Cipher.checkPassphrase = async function (passphrase, shadow) {
  */
 Cipher.shadowPassphrase = async function (passphrase) {
   let key128 = await Cipher.deriveKey(passphrase);
+  // let plainShadow = crypto.SHA512(key128).toString("base64");
   let plainShadow = Crypto.createHash("sha512").update(key128).digest("base64");
   let cipher = Cipher.create(key128);
   let shadow = cipher.encrypt(plainShadow);
@@ -59,6 +61,11 @@ Cipher.deriveKey = async function (passphrase) {
 
   let ikm = Buffer.from(passphrase, "utf8");
   let key128 = await new Promise(function (resolve, reject) {
+    /* let key128 = crypto.PBKDF2(passphrase, SALT, {
+      keySize: 512 / 16,
+    });
+    resolve(key128);
+     */
     //@ts-ignore
     Crypto.hkdf(DIGEST, ikm, SALT, INFO, SIZE, function (err, key128) {
       if (err) {
@@ -77,6 +84,8 @@ Cipher.deriveKey = async function (passphrase) {
  * @param {Buffer} key128
  */
 Cipher.checkShadow = function (shadow, key128) {
+  // let untrustedShadow = crypto.SHA512(key128).toString("base64");
+
   let untrustedShadow = Crypto.createHash("sha512")
     .update(key128)
     .digest("base64");
@@ -111,9 +120,13 @@ Cipher.create = function (key128) {
    * @param {String} plaintext
    */
   cipher.encrypt = function (plaintext) {
+    // let initializationVector = crypto.lib.WordArray.random(IV_SIZE);
     let initializationVector = Crypto.randomBytes(IV_SIZE); // IV is always 16-bytes
     let encrypted = "";
 
+    // let _cipher = crypto.AES.encrypt(plaintext, key128, {iv: initializationVector});
+    // encrypted += _cipher;
+    // encrypted += _cipher.toString("base64");
     let _cipher = Crypto.createCipheriv(ALG, key128, initializationVector);
     encrypted += _cipher.update(plaintext, "utf8", "base64");
     encrypted += _cipher.final("base64");
@@ -140,6 +153,7 @@ Cipher.create = function (key128) {
     }
 
     let iv = Buffer.from(initializationVector, "base64");
+    // let _cipher = crypto.AES.decrypt(encrypted, key128, {iv: iv});
     let _cipher = Crypto.createDecipheriv(ALG, key128, iv);
     plaintext += _cipher.update(encrypted, "base64", "utf8");
     plaintext += _cipher.final("utf8");

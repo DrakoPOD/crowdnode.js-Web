@@ -1,21 +1,12 @@
-"use strict";
-
-let Ws = module.exports;
+import { Iws, iEio3 } from "../types/ws";
+import * as pkg from "../package.json";
 
 let Cookies = require("../lib/cookies.js");
-let request = require("./request.js");
-
 let WSClient = require("ws");
 
-/**
- * @param {Object} opts
- * @param {String} opts.baseUrl
- * @param {CookieStore} opts.cookieStore
- * @param {Boolean} opts.debug
- * @param {Function} opts.onClose
- * @param {Function} opts.onError
- * @param {Function} opts.onMessage
- */
+var Ws = <Iws>{};
+let httpAgent = `${pkg.name}/${pkg.version}`;
+
 Ws.create = function ({
   baseUrl,
   cookieStore,
@@ -40,7 +31,7 @@ Ws.create = function ({
     */
   };
 
-  let Eio3 = {};
+  let Eio3 = <iEio3>{};
   /*
   let httpAgent = new Https.Agent({
     keepAlive: true,
@@ -54,19 +45,17 @@ Ws.create = function ({
     let sidUrl = `${baseUrl}/socket.io/?EIO=3&transport=polling&t=${now}`;
 
     let cookies = await cookieStore.get(sidUrl);
-    let sidResp = await request({
-      //agent: httpAgent,
-      url: sidUrl,
-      headers: Object.assign(
-        {
-          Cookie: cookies,
-        },
-        defaultHeaders,
-      ),
-      json: false,
+    //let sidResp = fetch(sidUrl, {  headers:{ Cookie: document.cookie, ...defaultHeaders},json: false, });
+
+    let sidResp = await fetch(sidUrl, {
+      headers: {
+        Cookie: cookies,
+        userAgent: httpAgent,
+      },
+      ...defaultHeaders,
     });
     if (!sidResp.ok) {
-      console.error(sidResp.toJSON());
+      console.error(await sidResp.text());
       throw new Error("bad response");
     }
     await cookieStore.set(sidUrl, sidResp);

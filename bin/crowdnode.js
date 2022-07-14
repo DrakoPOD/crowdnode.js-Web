@@ -1,6 +1,4 @@
-#!/usr/bin/env node
 "use strict";
-/*jshint maxcomplexity:25 */
 
 require("dotenv").config({ path: ".env" });
 require("dotenv").config({ path: ".env.secret" });
