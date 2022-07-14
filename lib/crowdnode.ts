@@ -1,15 +1,13 @@
-"use strict";
+import dashcore from "@dashevo/dashcore-lib";
+import Dash from "./dash";
+import Insight from "./insight";
+import Ws from "./ws";
 
-let request = require("./request.js");
+import { ICrowdNode } from "../types/crowdnode";
 
-let CrowdNode = module.exports;
+let CrowdNode = <ICrowdNode>{};
 
 const DUFFS = 100000000;
-
-let Dash = require("./dash.js");
-let Dashcore = require("@dashevo/dashcore-lib");
-let Insight = require("./insight.js");
-let Ws = require("./ws.js");
 
 CrowdNode._insightBaseUrl = "";
 // TODO don't require these shims
@@ -18,12 +16,12 @@ CrowdNode._dashApi = Dash.create({ insightApi: CrowdNode._insightApi });
 
 CrowdNode.main = {
   baseUrl: "https://app.crowdnode.io",
-  hotwallet: "",
+  hotWallet: "",
 };
 
 CrowdNode.test = {
   baseUrl: "https://test.crowdnode.io",
-  hotwallet: "",
+  hotWallet: "",
 };
 
 CrowdNode._baseUrl = CrowdNode.main.baseUrl;
@@ -33,9 +31,6 @@ CrowdNode.duffs = 100000000;
 CrowdNode.depositMinimum = 10000;
 CrowdNode.stakeMinimum = toDuff(0.5);
 
-/**
- * @type {Record<String, Number>}
- */
 CrowdNode.requests = {
   acceptTerms: 65536,
   offset: 20000,
@@ -45,9 +40,6 @@ CrowdNode.requests = {
   withdrawMax: 1000,
 };
 
-/**
- * @type {Record<Number, String>}
- */
 CrowdNode._responses = {
   2: "PleaseAcceptTerms",
   4: "WelcomeToCrowdNodeBlockChainAPI",
@@ -82,16 +74,16 @@ CrowdNode.init = async function ({ baseUrl, insightBaseUrl }) {
   CrowdNode._baseUrl = baseUrl;
 
   //hotwallet in Mainnet is XjbaGWaGnvEtuQAUoBgDxJWe8ZNv45upG2
-  CrowdNode.main.hotwallet = await request({
+  CrowdNode.main.hotWallet = await fetch(
     // TODO https://app.crowdnode.io/odata/apifundings/HotWallet
-    url: "https://knowledge.crowdnode.io/en/articles/5963880-blockchain-api-guide",
-  }).then(createAddrParser("hotwallet in Main"));
+    "https://knowledge.crowdnode.io/en/articles/5963880-blockchain-api-guide",
+  ).then(createAddrParser("hotWallet in Main"));
 
   //hotwallet in Test is yMY5bqWcknGy5xYBHSsh2xvHZiJsRucjuy
-  CrowdNode.test.hotwallet = await request({
+  CrowdNode.test.hotWallet = await fetch(
     // TODO https://test.crowdnode.io/odata/apifundings/HotWallet
-    url: "https://knowledge.crowdnode.io/en/articles/5963880-blockchain-api-guide",
-  }).then(createAddrParser("hotwallet in Test"));
+    "https://knowledge.crowdnode.io/en/articles/5963880-blockchain-api-guide",
+  ).then(createAddrParser("hotwallet in Test"));
 
   CrowdNode._insightBaseUrl = insightBaseUrl;
   CrowdNode._insightApi = Insight.create({
@@ -100,11 +92,7 @@ CrowdNode.init = async function ({ baseUrl, insightBaseUrl }) {
   CrowdNode._dashApi = Dash.create({ insightApi: CrowdNode._insightApi });
 };
 
-/**
- * @param {String} signupAddr
- * @param {String} hotwallet
- */
-CrowdNode.status = async function (signupAddr, hotwallet) {
+CrowdNode.status = async function (signupAddr, hotWallet) {
   let maxPages = 10;
   let data = await CrowdNode._insightApi.getTxs(signupAddr, maxPages);
   let status = {
@@ -113,12 +101,12 @@ CrowdNode.status = async function (signupAddr, hotwallet) {
     deposit: 0,
   };
 
-  data.txs.forEach(function (tx) {
+  data.txs.forEach(function (tx: any) {
     // all inputs (utxos) must come from hotwallet
-    let fromHotwallet = tx.vin.every(function (vin) {
-      return vin.addr === hotwallet;
+    let fromHotWallet = tx.vin.every(function (vin: any) {
+      return vin.addr === hotWallet;
     });
-    if (!fromHotwallet) {
+    if (!fromHotWallet) {
       return;
     }
 
