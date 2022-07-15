@@ -1,25 +1,20 @@
-"use strict";
+import Dashcore from "@dashevo/dashcore-lib";
+import { IDash, IdashApi, CoreUtxo, InsightUtxo } from "../types/dash";
 
-let Dash = module.exports;
+let Dash = <IDash>{};
 
 const DUFFS = 100000000;
 const DUST = 10000;
 const FEE = 1000;
 
-let Dashcore = require("@dashevo/dashcore-lib");
 let Transaction = Dashcore.Transaction;
 
 Dash.create = function ({
   //@ts-ignore TODO
   insightApi,
 }) {
-  let dashApi = {};
+  let dashApi = <IdashApi>{};
 
-  /**
-   * Instant Balance is accurate with Instant Send
-   * @param {String} address
-   * @returns {Promise<InstantBalance>}
-   */
   dashApi.getInstantBalance = async function (address) {
     let body = await insightApi.getUtxos(address);
     let utxos = await getUtxos(body);
@@ -40,12 +35,7 @@ Dash.create = function ({
       }),
     };
   };
-
-  /**
-   * Full Send!
-   * @param {String} privKey
-   * @param {String} pub
-   */
+  /** Full Send! */
   dashApi.createBalanceTransfer = async function (privKey, pub) {
     let pk = new Dashcore.PrivateKey(privKey);
     let changeAddr = pk.toPublicKey().toAddress().toString();
@@ -81,10 +71,6 @@ Dash.create = function ({
 
   /**
    * Send with change back
-   * @param {String} privKey
-   * @param {(String|import('@dashevo/dashcore-lib').Address)} payAddr
-   * @param {Number} amount
-   * @param {(String|import('@dashevo/dashcore-lib').Address)} [changeAddr]
    */
   dashApi.createPayment = async function (
     privKey,
@@ -147,10 +133,9 @@ Dash.create = function ({
 
   // TODO make more optimal
   /**
-   * @param {String} utxoAddr
-   * @param {Number} fullAmount - including fee estimate
+   * @param fullAmount - including fee estimate
    */
-  async function getOptimalUtxos(utxoAddr, fullAmount) {
+  async function getOptimalUtxos(utxoAddr: string, fullAmount: number) {
     // get smallest coin larger than transaction
     // if that would create dust, donate it as tx fee
     let body = await insightApi.getUtxos(utxoAddr);
@@ -166,8 +151,7 @@ Dash.create = function ({
       return b.satoshis - a.satoshis;
     });
 
-    /** @type Array<CoreUtxo> */
-    let included = [];
+    let included = <Array<CoreUtxo>>[];
     let total = 0;
 
     // try to get just one
@@ -192,21 +176,14 @@ Dash.create = function ({
     return included;
   }
 
-  /**
-   * @param {Array<CoreUtxo>} utxos
-   */
-  function getBalance(utxos) {
+  function getBalance(utxos: Array<CoreUtxo>) {
     return utxos.reduce(function (total, utxo) {
       return total + utxo.satoshis;
     }, 0);
   }
 
-  /**
-   * @param {Array<InsightUtxo>} body
-   */
-  async function getUtxos(body) {
-    /** @type Array<CoreUtxo> */
-    let utxos = [];
+  async function getUtxos(body: Array<InsightUtxo>) {
+    let utxos = <Array<CoreUtxo>>[];
 
     await body.reduce(async function (promise, utxo) {
       await promise;
@@ -216,7 +193,7 @@ Dash.create = function ({
       // TODO the ideal would be the smallest amount that is greater than the required amount
 
       let utxoIndex = -1;
-      data.vout.some(function (vout, index) {
+      data.vout.some(function (vout: InsightTxVout, index: number) {
         if (!vout.scriptPubKey?.addresses?.includes(utxo.address)) {
           return false;
         }
@@ -244,3 +221,5 @@ Dash.create = function ({
 
   return dashApi;
 };
+
+export default Dash;

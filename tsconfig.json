@@ -31,6 +31,6 @@
     "skipLibCheck": true /* Skip type checking of declaration files. */,
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
   },
-  "include": ["./types.js", "server.js", "bin/**/*.js", "lib/**/*.js", "bin/custom/fs.ts", "lib/ws.ts", "lib/insight.ts", "lib/crowdnode.ts"],
+  "include": ["./types.js", "server.js", "bin/**/*.js", "lib/**/*.js", "bin/custom/fs.ts", "lib/ws.ts", "lib/insight.ts", "lib/crowdnode.ts", "lib/dash.ts"],
   "exclude": ["node_modules"]
 }
