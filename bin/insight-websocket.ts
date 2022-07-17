@@ -8,7 +8,7 @@ require("dotenv").config({ path: ".env.secret" });
 //let Https = require("https");
 
 // only needed for insight APIs hosted behind an AWS load balancer
-let Cookies = require("../lib/cookies.js");
+//let Cookies = require("../lib/cookies.js");
 let Ws = require("../lib/ws.js");
 
 let baseUrl = `https://insight.dash.org`;
@@ -48,7 +48,7 @@ async function main() {
   // TODO pass eventnames
   let ws = Ws.create({
     baseUrl: baseUrl,
-    cookieStore: Cookies,
+    cookieStore: "", //Cookies,
     debug: true,
   });
 

@@ -7,9 +7,11 @@ specifiers:
   '@rollup/plugin-json': ^4.1.0
   '@rollup/plugin-typescript': ^8.3.3
   '@root/request': ^1.8.1
+  '@types/node': ^18.0.4
   '@types/tough-cookie': ^4.0.2
   crypto-js: ^4.1.1
   dotenv: ^16.0.1
+  js-cookie: ^3.0.1
   qrcode-svg: ^1.1.0
   tough-cookie: ^4.0.0
   ws: ^8.8.0
@@ -19,6 +21,7 @@ dependencies:
   '@root/request': 1.8.3
   crypto-js: 4.1.1
   dotenv: 16.0.1
+  js-cookie: 3.0.1
   qrcode-svg: 1.1.0
   tough-cookie: 4.0.0
   ws: 8.8.0
@@ -28,6 +31,7 @@ devDependencies:
   '@rollup/plugin-commonjs': 22.0.1
   '@rollup/plugin-json': 4.1.0
   '@rollup/plugin-typescript': 8.3.3
+  '@types/node': 18.0.4
   '@types/tough-cookie': 4.0.2
 
 packages:
@@ -348,6 +352,10 @@ packages:
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
     dev: false
 
+  /@types/node/18.0.4:
+    resolution: {integrity: sha512-M0+G6V0Y4YV8cqzHssZpaNCqvYwlCiulmm0PwpNLF55r/+cT8Ol42CHRU1SEaYFH2rTwiiE1aYg/2g2rrtGdPA==}
+    dev: true
+
   /@types/tough-cookie/4.0.2:
     resolution: {integrity: sha512-Q5vtl1W5ue16D+nIaW8JWebSSraJVlK+EthKn7e7UcD4KWsaSJ8BqGPXNaPghgtcn/fhvrN17Tv8ksUsQpiplw==}
     dev: true
@@ -589,6 +597,11 @@ packages:
     dependencies:
       '@types/estree': 0.0.39
     dev: true
+
+  /js-cookie/3.0.1:
+    resolution: {integrity: sha512-+0rgsUXZu4ncpPxRL+lNEptWMOWl9etvPHc/koSRp6MPwpRYAhmk0dUG00J4bxVV3r9uUzfo24wW0knS07SKSw==}
+    engines: {node: '>=12'}
+    dev: false
 
   /js-tokens/4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
