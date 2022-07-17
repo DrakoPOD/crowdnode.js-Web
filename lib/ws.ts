@@ -8,7 +8,7 @@ import {
 } from "../types/ws";
 import * as pkg from "../package.json";
 
-let Cookies = require("../lib/cookies.js");
+//let Cookies = require("../lib/cookies.js");
 let WSClient = require("ws");
 
 var Ws = <Iws>{};
@@ -51,21 +51,21 @@ Ws.create = function ({
     let now = Date.now();
     let sidUrl = `${baseUrl}/socket.io/?EIO=3&transport=polling&t=${now}`;
 
-    let cookies = await cookieStore.get(sidUrl);
-    //let sidResp = fetch(sidUrl, {  headers:{ Cookie: document.cookie, ...defaultHeaders},json: false, });
+    //let cookies = await cookieStore.get(sidUrl);
 
     let sidResp = await fetch(sidUrl, {
+      credentials: "include",
       headers: {
-        Cookie: cookies,
+        //Cookie: cookies,
         userAgent: httpAgent,
+        ...defaultHeaders,
       },
-      ...defaultHeaders,
     });
     if (!sidResp.ok) {
       console.error(await sidResp.text());
       throw new Error("bad response");
     }
-    document.cookie = sidUrl + "=" + sidResp;
+    //await Cookies.set(sidUrl, sidResp);
 
     // ex: `97:0{"sid":"xxxx",...}`
     let msg = await sidResp.text();
@@ -94,15 +94,16 @@ Ws.create = function ({
     let len = msg.length;
     let Body = `${len}:${msg}`;
 
-    let cookies = await cookieStore.get(subUrl);
+    //let cookies = await cookieStore.get(subUrl);
     let subResp = await fetch(
       //agent: httpAgent,
       subUrl,
       {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "text/plain;charset=UTF-8",
-          Cookie: cookies,
+          //Cookie: cookies,
           ...defaultHeaders,
         },
         body: Body,
@@ -152,14 +153,14 @@ Ws.create = function ({
         "ws",
       );
 
-    let cookies = await cookieStore.get(`${baseUrl}/`);
+    //let cookies = await cookieStore.get(`${baseUrl}/`);
     let ws = new WSClient(url, {
       //agent: httpAgent,
       //perMessageDeflate: false,
       //@ts-ignore - type info is wrong
       headers: Object.assign(
         {
-          Cookie: cookies,
+          //Cookie: cookies,
         },
         defaultHeaders,
       ),
@@ -313,7 +314,7 @@ Ws.listen = async function (baseUrl, find) {
     //@ts-ignore
     ws = Ws.create({
       baseUrl: baseUrl,
-      cookieStore: Cookies,
+      cookieStore: "", //Cookies,
       //debug: true,
       onClose: resolve,
       onError: reject,
