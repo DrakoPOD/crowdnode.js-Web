@@ -67,6 +67,8 @@ function showHelp() {
   console.info("");
   console.info("Usage:");
   console.info("    crowdnode help");
+  console.info("    crowdnode version");
+  console.info("");
   console.info("    crowdnode status [keyfile-or-addr]");
   console.info("    crowdnode signup [keyfile-or-addr]");
   console.info("    crowdnode accept [keyfile-or-addr]");
@@ -74,7 +76,7 @@ function showHelp() {
     "    crowdnode deposit [keyfile-or-addr] [dash-amount] [--no-reserve]",
   );
   console.info(
-    "    crowdnode withdrawal [keyfile-or-addr] <percent> # 1.0-100.0 (steps by 0.1)",
+    "    crowdnode withdraw [keyfile-or-addr] <percent> # 1.0-100.0 (steps by 0.1)",
   );
   console.info("");
 
@@ -140,7 +142,7 @@ async function main() {
   // Usage:
   //    crowdnode <subcommand> [flags] <privkey> [options]
   // Example:
-  //    crowdnode withdrawal ./Xxxxpubaddr.wif 100.0
+  //    crowdnode withdraw ./Xxxxpubaddr.wif 100.0
 
   let args = process.argv.slice(2);
 
@@ -381,8 +383,16 @@ async function main() {
     return;
   }
 
+  // The misspelling 'withdrawal' is kept as part of compatibility < v1.7
   if ("withdrawal" === subcommand) {
-    await withdrawalDash({ dashApi, defaultAddr, insightBaseUrl }, args);
+    console.warn(
+      `[Deprecation Notice] 'crowdnode withdrawal' is a misspelling of 'crowdnode withdraw'`,
+    );
+    subcommand = "withdraw";
+  }
+
+  if ("withdraw" === subcommand) {
+    await withdrawDash({ dashApi, defaultAddr, insightBaseUrl }, args);
     process.exit(0);
     return;
   }
@@ -483,6 +493,8 @@ async function stakeDash(
     { dashApi, defaultAddr: addr, insightBaseUrl, noReserve },
     [addr].concat(args),
   );
+
+  await checkBalance({ addr, dashApi });
 }
 
 /**
@@ -977,7 +989,7 @@ cmds.getPassphrase = async function ({ _rotatePassphrase, _force }, args) {
       let no;
       if (!_force) {
         no = await Prompt.prompt(
-          "Would you like to set an encryption passphrase? [Y/n]: ",
+          "Would you like to encrypt your keys with a passphrase? [Y/n]: ",
         );
       }
 
@@ -1467,7 +1479,7 @@ async function getAllBalances({ dashApi, defaultAddr }, args) {
   totals.stakeDash = toDASH(toDuff(totals.stake.toString()));
   totals.dividendDash = toDASH(toDuff(totals.dividend.toString()));
   console.info(
-    `${total} | ${totals.stakeDash} | ${totals.stakeDash} | ${totals.dividendDash} |`,
+    `${total} | ${totals.keyDash} | ${totals.stakeDash} | ${totals.dividendDash} |`,
   );
   debug(``);
 
@@ -1532,7 +1544,7 @@ async function removeKey({ addr, dashApi, filepath, insightBaseUrl }, args) {
       `    still staking ${crowdNodeBalance.TotalBalance} (Đ${crowdNodeDash}) on CrowdNode`,
     );
     console.error(
-      `    (withdrawal 100.0 and transfer to another address before deleting)`,
+      `    (withdraw 100.0 and transfer to another address before deleting)`,
     );
     console.error(``);
     process.exit(1);
@@ -1655,7 +1667,11 @@ async function plainLoadAddr({
   showQr(addr, effectiveDuff);
   console.info(``);
   console.info(
-    `Use the QR Code above to load ${effectiveDuff} (Đ${effectiveDash}) onto your staking key.`,
+    `Send Đ${effectiveDash} to your staking key via the QR above, or its address:`,
+  );
+  console.info(`${addr}`);
+  console.info(
+    `(this key will be used to fund and control your CrowdNode account)`,
   );
   console.info(``);
   console.info(`(waiting...)`);
@@ -1687,12 +1703,35 @@ async function getBalance({ dashApi, defaultAddr }, args) {
  * @param {any} opts.insightApi
  * @param {Array<String>} args
  */
-// ex: node ./bin/crowdnode.js transfer ./priv.wif 'pub' 0.01
+// ex: node ./bin/crowdnode.js transfer Xxxxx 'pub' 0.01
 async function transferBalance(
   { dashApi, defaultAddr, forceConfirm, insightBaseUrl, insightApi },
   args,
 ) {
-  let wif = await mustGetWif({ defaultAddr }, args);
+  /** @type Array<String> */
+  let getAddrArgs = [];
+
+  // There are two cases in which we could have only 2 arguments,
+  // and the first argument could be an address inside or outside
+  // of the wallet.
+  //
+  // Ex:
+  //   crowdnode transfer {source} {dest}
+  //   crowdnode transfer {source} {dest} {amount}
+  //   crowdnode transfer {dest} {amount}
+  //   crowdnode transfer {dest}
+  //
+  // To disambiguate, we check if the second argument is an amount.
+  if (3 === args.length) {
+    getAddrArgs = args;
+  } else if (2 === args.length) {
+    let maybeAmount = parseFloat(args[1]);
+    let isAddr = isNaN(maybeAmount);
+    if (isAddr) {
+      getAddrArgs = args;
+    }
+  }
+  let wif = await mustGetWif({ defaultAddr }, getAddrArgs);
 
   let keyname = args.shift() || "";
   let newAddr = await wifFileToAddr(keyname);
@@ -1778,7 +1817,7 @@ async function sendSignup({ dashApi, defaultAddr, insightBaseUrl }, args) {
   await initCrowdNode(insightBaseUrl);
   let hotwallet = CrowdNode.main.hotwallet;
   let state = await getCrowdNodeStatus({ addr, hotwallet });
-  let balanceInfo = await checkBalance({ addr, dashApi });
+  let balanceInfo = await dashApi.getInstantBalance(addr);
 
   if (state.status?.signup) {
     console.info(`${addr} is already signed up. Here's the account status:`);
@@ -1870,12 +1909,12 @@ async function depositDash(
     return;
   }
 
-  // this would allow for at least 2 withdrawals costing (21000 + 1000)
+  // this would allow for at least 2 withdraws costing (21000 + 1000)
   let reserve = 50000;
   let reserveDash = toDash(reserve);
   if (!noReserve) {
     console.info(
-      `reserving ${reserve} (Đ${reserveDash}) for withdrawals (--no-reserve to disable)`,
+      `reserving ${reserve} (Đ${reserveDash}) for withdraws (--no-reserve to disable)`,
     );
   } else {
     reserve = 0;
@@ -1933,7 +1972,7 @@ async function depositDash(
  * @param {String} opts.insightBaseUrl
  * @param {Array<String>} args
  */
-async function withdrawalDash({ dashApi, defaultAddr, insightBaseUrl }, args) {
+async function withdrawDash({ dashApi, defaultAddr, insightBaseUrl }, args) {
   let [addr] = await mustGetAddr({ defaultAddr }, args);
   await initCrowdNode(insightBaseUrl);
   let hotwallet = CrowdNode.main.hotwallet;
@@ -1949,24 +1988,24 @@ async function withdrawalDash({ dashApi, defaultAddr, insightBaseUrl }, args) {
   // pass: .1 0.1, 1, 1.0, 10, 10.0, 100, 100.0
   // fail: 1000, 10.00
   if (!/^1?\d?\d?(\.\d)?$/.test(percentStr)) {
-    console.error("Error: withdrawal percent must be between 0.1 and 100.0");
+    console.error("Error: withdraw percent must be between 0.1 and 100.0");
     process.exit(1);
   }
   let percent = parseFloat(percentStr);
 
   let permil = Math.round(percent * 10);
   if (permil <= 0 || permil > 1000) {
-    console.error("Error: withdrawal percent must be between 0.1 and 100.0");
+    console.error("Error: withdraw percent must be between 0.1 and 100.0");
     process.exit(1);
   }
 
   let realPercentStr = (permil / 10).toFixed(1);
-  console.info(`Initiating withdrawal of ${realPercentStr}%...`);
+  console.info(`Initiating withdraw of ${realPercentStr}%...`);
 
   let wifname = await findWif(addr);
   let filepath = Path.join(keysDir, wifname);
   let wif = await maybeReadKeyFile(filepath);
-  let paid = await CrowdNode.withdrawal(wif, hotwallet, permil);
+  let paid = await CrowdNode.withdraw(wif, hotwallet, permil);
   //let paidFloat = (paid.satoshis / DUFFS).toFixed(8);
   //let paidInt = paid.satoshis.toString().padStart(9, "0");
   console.info(`API Response: ${paid.api}`);

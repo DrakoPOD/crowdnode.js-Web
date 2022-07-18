@@ -45,7 +45,7 @@ CrowdNode._responses = {
   4: "WelcomeToCrowdNodeBlockChainAPI",
   8: "DepositReceived",
   16: "WithdrawalQueued",
-  32: "WithdrawalFailed", // Most likely too small amount requested for withdrawal.
+  32: "WithdrawalFailed", // Most likely too small amount requested for withdraw.
   64: "AutoWithdrawalEnabled",
   128: "AutoWithdrawalDisabled",
 };
@@ -220,7 +220,7 @@ CrowdNode.deposit = async function (wif, hotwallet, amount) {
  * @param {String} hotwallet
  * @param {Number} permil - 1/1000 (1/10 of a percent) 500 permille = 50.0 percent
  */
-CrowdNode.withdrawal = async function (wif, hotwallet, permil) {
+CrowdNode.withdraw = async function (wif, hotwallet, permil) {
   let valid = permil > 0 && permil <= 1000;
   valid = valid && Math.round(permil) === permil;
   if (!valid) {
@@ -279,7 +279,7 @@ CrowdNode.withdrawal = async function (wif, hotwallet, permil) {
         let msg = duffs - CrowdNode.offset;
         let api = CrowdNode._responses[msg];
         if (!api) {
-          // the withdrawal often happens before the queued message
+          // the withdraw often happens before the queued message
           console.warn(`  => received '${duffs}' (${evname})`);
           return false;
         }
@@ -310,11 +310,28 @@ CrowdNode.withdrawal = async function (wif, hotwallet, permil) {
   }
 };
 
+CrowdNode._withdrawalWarned = false;
+
+/**
+ * @param {String} wif
+ * @param {String} hotwallet
+ * @param {Number} permil
+ * @ignore - this is deprecated, not to be used
+ */
+CrowdNode.withdrawal = async function (wif, hotwallet, permil) {
+  if (!CrowdNode._withdrawalWarned) {
+    CrowdNode._withdrawalWarned = true;
+    console.warn(
+      `[Deprecation Notice] CrowdNode.withdrawal() is a misspelling of CrowdNode.withdraw()`,
+    );
+  }
+  return await CrowdNode.withdraw(wif, hotwallet, permil);
+};
+
 // See ./bin/crowdnode-list-apis.sh
 CrowdNode.http = {};
 
 /**
- * @param {String} baseUrl
  * @param {String} pub
  */
 CrowdNode.http.FundsOpen = async function (pub) {
@@ -322,7 +339,6 @@ CrowdNode.http.FundsOpen = async function (pub) {
 };
 
 /**
- * @param {String} baseUrl
  * @param {String} pub
  */
 CrowdNode.http.VotingOpen = async function (pub) {
@@ -330,7 +346,6 @@ CrowdNode.http.VotingOpen = async function (pub) {
 };
 
 /**
- * @param {String} baseUrl
  * @param {String} pub
  */
 CrowdNode.http.GetFunds = createApi(
@@ -338,7 +353,6 @@ CrowdNode.http.GetFunds = createApi(
 );
 
 /**
- * @param {String} baseUrl
  * @param {String} pub
  * @param {String} secondsSinceEpoch
  */
@@ -347,16 +361,37 @@ CrowdNode.http.GetFundsFrom = createApi(
 );
 
 /**
- * @param {String} baseUrl
- * @param {String} pub
- * @returns {CrowdNodeBalance}
+ * @param {String} addr
+ * @returns {Promise<CrowdNodeBalance>}
+ * @ignore
  */
-CrowdNode.http.GetBalance = createApi(
+CrowdNode.http._GetBalance = createApi(
   `/odata/apifundings/GetBalance(address='{1}')`,
 );
 
 /**
- * @param {String} baseUrl
+ * @param {String} addr
+ * @returns {Promise<CrowdNodeBalance>}
+ */
+CrowdNode.http.GetBalance = async function (addr) {
+  let balanceInfo = await CrowdNode.http._GetBalance(addr);
+
+  if (!("TotalBalance" in balanceInfo)) {
+    return balanceInfo;
+  }
+
+  // Workaround for https://github.com/dashhive/crowdnode-cli/issues/19
+  // (we could also `b = Math.round(Math.floor(b * DUFFS) / DUFFS)`)
+  balanceInfo.TotalBalance = parseFloat(balanceInfo.TotalBalance.toFixed(8));
+  balanceInfo.TotalActiveBalance = parseFloat(
+    balanceInfo.TotalActiveBalance.toFixed(8),
+  );
+  balanceInfo.TotalDividend = parseFloat(balanceInfo.TotalDividend.toFixed(8));
+
+  return balanceInfo;
+};
+
+/**
  * @param {String} pub
  */
 CrowdNode.http.GetMessages = createApi(
@@ -364,7 +399,6 @@ CrowdNode.http.GetMessages = createApi(
 );
 
 /**
- * @param {String} baseUrl
  * @param {String} pub
  */
 CrowdNode.http.IsAddressInUse = createApi(
@@ -373,7 +407,6 @@ CrowdNode.http.IsAddressInUse = createApi(
 
 /**
  * Set Email Address: messagetype=1
- * @param {String} baseUrl
  * @param {String} pub - pay to pubkey base58check address
  * @param {String} email
  * @param {String} signature
@@ -384,7 +417,6 @@ CrowdNode.http.SetEmail = createApi(
 
 /**
  * Vote on Governance Objects: messagetype=2
- * @param {String} baseUrl
  * @param {String} pub - pay to pubkey base58check address
  * @param {String} gobject-hash
  * @param {String} choice - Yes|No|Abstain|Delegate|DoNothing
@@ -396,7 +428,6 @@ CrowdNode.http.Vote = createApi(
 
 /**
  * Set Referral: messagetype=3
- * @param {String} baseUrl
  * @param {String} pub - pay to pubkey base58check address
  * @param {String} referralId
  * @param {String} signature
